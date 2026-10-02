@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Lunapark 3D — Uludağ Ekspres & Bursa Gözü</title>
+<style>
+  :root { --glass: rgba(14, 18, 32, 0.62); --line: rgba(255,255,255,0.14); --acc: #ffcc33; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #000; font-family: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif; color: #f2f4ff; }
+  canvas { display: block; }
+  .panel { position: fixed; background: var(--glass); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; box-shadow: 0 8px 30px rgba(0,0,0,.35); user-select: none; }
+  #title { top: 14px; left: 14px; }
+  #title h1 { margin: 0; font-size: 19px; letter-spacing: .5px; }
+  #title p { margin: 4px 0 0; font-size: 12px; opacity: .75; }
+  #modes { top: 14px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; padding: 8px; }
+  button { cursor: pointer; border: 1px solid var(--line); background: rgba(255,255,255,0.07); color: #fff; padding: 9px 14px; border-radius: 10px; font-size: 14px; font-weight: 600; transition: all .2s; }
+  button:hover { background: rgba(255,255,255,0.18); transform: translateY(-1px); }
+  button.active { background: linear-gradient(135deg, #ffb347, #ff5e62); border-color: transparent; box-shadow: 0 0 18px rgba(255,120,80,.55); }
+  #modes button.night.active { background: linear-gradient(135deg, #3a4bd8, #141b5e); box-shadow: 0 0 18px rgba(90,110,255,.6); }
+  #modes button.fest.active { background: linear-gradient(135deg, #ff3cac, #784ba0, #2b86c5); box-shadow: 0 0 20px rgba(255,60,172,.6); }
+  #controls { bottom: 14px; left: 14px; display: flex; flex-direction: column; gap: 8px; width: 250px; }
+  #controls .row { display: flex; gap: 6px; flex-wrap: wrap; }
+  #controls .row button { flex: 1 1 45%; padding: 7px 8px; font-size: 12.5px; }
+  #controls label { font-size: 12px; opacity: .8; display: flex; justify-content: space-between; }
+  input[type=range] { width: 100%; accent-color: var(--acc); }
+  h3 { margin: 2px 0 0; font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px; opacity: .6; }
+  #hud { top: 14px; right: 14px; width: 232px; font-size: 13px; }
+  #hud .k { opacity: .65; }
+  #hud .v { float: right; font-variant-numeric: tabular-nums; font-weight: 700; }
+  #hud div { line-height: 1.75; }
+  #gbar { height: 6px; border-radius: 4px; background: rgba(255,255,255,.12); overflow: hidden; margin: 3px 0 6px; }
+  #gbar i { display: block; height: 100%; width: 20%; background: linear-gradient(90deg,#4ade80,#facc15,#ef4444); transition: width .1s; }
+  #credit { bottom: 14px; right: 14px; font-size: 12.5px; padding: 8px 12px; }
+  #credit b { color: var(--acc); }
+  #help { bottom: 62px; right: 14px; font-size: 11.5px; opacity: .85; max-width: 260px; }
+  #loading { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: #0b1020; z-index: 10; font-size: 18px; transition: opacity .6s; }
+  @media (max-width: 820px) { #hud, #help { display: none; } #modes { top: auto; bottom: 14px; left: auto; right: 14px; transform: none; flex-direction: column; } #credit { display:none; } }
+</style>
+</head>
+<body>
+<div id="loading">🎡 Lunapark kuruluyor…</div>
+
+<div id="title" class="panel">
+  <h1>🎢 Lunapark 3D</h1>
+  <p>Uludağ Ekspres · Bursa Gözü · Atlıkarınca</p>
+</div>
+
+<div id="modes" class="panel">
+  <button id="mDay" class="active">☀️ Gündüz</button>
+  <button id="mNight" class="night">🌙 Gece</button>
+  <button id="mFest" class="fest">🎉 Festival</button>
+</div>
+
+<div id="controls" class="panel">
+  <h3>Kamera</h3>
+  <div class="row">
+    <button data-cam="orbit" class="active">🎥 Serbest</button>
+    <button data-cam="coaster">🎢 Tren POV</button>
+    <button data-cam="wheel">🎡 Dolap POV</button>
+    <button data-cam="cine">🎬 Sinematik</button>
+  </div>
+  <h3>Oyuncaklar</h3>
+  <div class="row">
+    <button id="bTrain">⏸ Treni Park Et</button>
+    <button id="bWheel">⏸ Dolabı Durdur</button>
+  </div>
+  <label>Simülasyon hızı <span id="tsV">1.00×</span></label>
+  <input id="ts" type="range" min="0.1" max="2" step="0.05" value="1" />
+  <label>Rüzgâr <span id="windV">hafif</span></label>
+  <input id="wind" type="range" min="0" max="3" step="0.1" value="0.6" />
+</div>
+
+<div id="hud" class="panel">
+  <h3>Uludağ Ekspres (canlı telemetri)</h3>
+  <div><span class="k">Durum</span><span class="v" id="hState">-</span></div>
+  <div><span class="k">Hız</span><span class="v" id="hSpeed">0 km/h</span></div>
+  <div><span class="k">Yükseklik</span><span class="v" id="hHeight">0 m</span></div>
+  <div><span class="k">Dikey G</span><span class="v" id="hG">1.00 g</span></div>
+  <div id="gbar"><i></i></div>
+  <div><span class="k">Yanal G</span><span class="v" id="hLat">0.00 g</span></div>
+  <div><span class="k">Ray yatışı (bank)</span><span class="v" id="hBank">0°</span></div>
+  <h3 style="margin-top:8px">Bursa Gözü</h3>
+  <div><span class="k">Dönüş hızı</span><span class="v" id="hRpm">0 rpm</span></div>
+  <div><span class="k">Kabin salınımı (maks)</span><span class="v" id="hSwing">0°</span></div>
+</div>
+
+<div id="help" class="panel">🖱️ Sürükle: döndür · Sağ tık: kaydır · Tekerlek: yakınlaş<br>⌨️ 1/2/3: Gündüz/Gece/Festival · C: kamera değiştir</div>
+<div id="credit" class="panel">build by <b>Opus 5.5</b></div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+} }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+Object.assign(window, { THREE, OrbitControls, EffectComposer, RenderPass, UnrealBloomPass, OutputPass });
+// classic scripts share one global scope -> load them in order
+for (const f of ['core.js', 'track.js', 'scene-coaster.js', 'rides-fx.js']) {
+  await new Promise((ok, err) => { const s = document.createElement('script'); s.src = f; s.onload = ok; s.onerror = err; document.body.appendChild(s); });
+}
+</script>
+</body>
+</html>
